@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="uz"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Samarqand Drive 3D</title>
+<style>
+:root{--hud:rgba(18,22,30,.72);--fg:#fff;--ac:#2fb8c4;--gold:#f0b94a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--hud:rgba(8,10,16,.8);--fg:#f4f4f4;--ac:#3cc9d5}}
+:root[data-theme="dark"]{--hud:rgba(8,10,16,.8);--fg:#f4f4f4;--ac:#3cc9d5}
+html,body{height:100%;margin:0;overflow:hidden;background:#9fd3f5;font-family:system-ui,-apple-system,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none;color:var(--fg)}
+canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+.p{background:var(--hud);border-radius:14px}
+#spd{position:fixed;left:12px;top:calc(12px + env(safe-area-inset-top,0px));padding:8px 14px;font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+#spd small{font-size:12px;font-weight:400;opacity:.8;margin-left:4px}
+#mm{position:fixed;right:12px;top:calc(12px + env(safe-area-inset-top,0px));width:110px;height:110px;border-radius:14px;background:var(--hud)}
+#ban{position:fixed;left:50%;top:calc(66px + env(safe-area-inset-top,0px));transform:translateX(-50%);padding:8px 16px;text-align:center;display:none;max-width:60%}
+#ban b{display:block;font-size:17px;color:var(--gold)}#ban span{font-size:12px;opacity:.9}
+#pause{position:fixed;left:12px;top:calc(64px + env(safe-area-inset-top,0px));padding:8px 12px;font-size:13px;border:0;color:var(--fg);font-family:inherit}
+.ctl{position:fixed;bottom:0;padding:0 14px calc(18px + env(safe-area-inset-bottom,0px));display:flex;gap:12px}
+.ctl button{width:70px;height:70px;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:var(--hud);color:var(--fg);font-size:26px;touch-action:none}
+.ctl button.on{background:var(--ac);color:#06262a}
+#L{left:0}#Rr{right:0}
+#menu{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(8,40,60,.82);padding:20px;text-align:center}
+#menu h1{margin:0;font-size:30px;color:var(--gold)}#menu p{margin:0 0 6px;font-size:14px;opacity:.9}
+.car{width:min(300px,86%);padding:12px;border-radius:14px;border:2px solid transparent;background:var(--hud);color:var(--fg);font-size:16px;text-align:left;font-family:inherit}
+.car small{display:block;opacity:.8;font-size:12px;margin-top:2px}.car.sel{border-color:var(--ac)}
+#go{padding:14px 40px;border:0;border-radius:14px;background:var(--ac);color:#06262a;font-size:18px;font-weight:700;margin-top:6px}
+</style></head><body>
+<canvas id="c"></canvas>
+<div id="spd" class="p"><span id="kmh">0</span><small>km/soat</small></div>
+<canvas id="mm" width="220" height="220"></canvas>
+<div id="ban" class="p"><b id="bn"></b><span id="bd"></span></div>
+<button id="pause" class="p">Mashina</button>
+<div id="L" class="ctl"><button data-k="l">◀</button><button data-k="r">▶</button></div>
+<div id="Rr" class="ctl"><button data-k="b">▼</button><button data-k="g">▲</button></div>
+<div id="menu"><h1>Samarqand Drive 3D</h1><p>Mashinani tanlang va shaharni kezing</p>
+<div id="cars"></div><button id="go">Haydash</button></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=i=>document.getElementById(i),T=THREE,PI=Math.PI;
+const R=new T.WebGLRenderer({canvas:$('c'),antialias:true});R.setPixelRatio(Math.min(devicePixelRatio,2));
+const S=new T.Scene();S.background=new T.Color(0x9fd3f5);S.fog=new T.Fog(0x9fd3f5,90,340);
+const cam=new T.PerspectiveCamera(62,1,.5,500);
+S.add(new T.HemisphereLight(0xffffff,0x8a7b5a,.9));
+const sun=new T.DirectionalLight(0xfff1d0,.8);sun.position.set(80,140,60);S.add(sun);
+function rs(){R.setSize(innerWidth,innerHeight,false);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}
+addEventListener('resize',rs);rs();
+const M={},mat=c=>M[c]||(M[c]=new T.MeshLambertMaterial({color:c}));
+function bx(w,h,d,c,x,y,z,p){const m=new T.Mesh(new T.BoxGeometry(w,h,d),mat(c));m.position.set(x,y,z);(p||S).add(m);return m}
+function cy(r,r2,h,c,x,y,z,p){const m=new T.Mesh(new T.CylinderGeometry(r2,r,h,14),mat(c));m.position.set(x,y,z);(p||S).add(m);return m}
+function dome(r,c,x,y,z,p,sy){const m=new T.Mesh(new T.SphereGeometry(r,14,8,0,PI*2,0,PI/2),mat(c));m.position.set(x,y,z);m.scale.y=sy||1.2;(p||S).add(m);return m}
+function pl(w,d,c,x,y,z){const m=new T.Mesh(new T.PlaneGeometry(w,d),mat(c));m.rotation.x=-PI/2;m.position.set(x,y,z);S.add(m)}
+const col=[],addC=(x,z,r)=>col.push([x,z,r]);
+const TQ=0x1fa3b5,SAND=0xd9bf86,BLUE=0x1d4f91;
+// ground & roads
+pl(800,800,0xcdbf93,0,0,0);
+const RD=[-200,-100,0,100,200];
+RD.forEach(v=>{pl(14,470,0x3b3d42,v,.02,0);pl(470,14,0x3b3d42,0,.02,v);pl(.3,470,0xe8d27a,v,.04,0);pl(470,.3,0xe8d27a,0,.04,v)});
+// landmarks
+const LM=[
+{n:'Registon',d:'Uch madrasadan iborat mashhur maydon',x:-150,z:-150},
+{n:'Go‘ri Amir',d:'Amir Temur maqbarasi',x:150,z:-150},
+{n:'Siyob bozori',d:'Samarqandning katta bozori',x:-150,z:150},
+{n:'Shohi Zinda',d:'Maqbaralar ansambli',x:150,z:150}];
+function madrasa(x,z,rot){const g=new T.Group();g.position.set(x,0,z);g.rotation.y=rot;S.add(g);
+bx(30,20,9,SAND,0,10,0,g);bx(10,15,1,BLUE,0,8.5,4.6,g);bx(8,13,1.1,0x0d2b52,0,7.5,4.7,g);
+[-16,16].forEach(s=>{cy(1.7,1.7,26,SAND,s,13,4,g);cy(2,1.2,3,TQ,s,27.5,4,g)});
+cy(6,6,6,SAND,0,23,-1,g);dome(6.5,TQ,0,26,-1,g,1.3);addC(x,z,15)}
+(()=>{const c=LM[0];madrasa(c.x,c.z-30,0);madrasa(c.x-32,c.z,PI/2);madrasa(c.x+32,c.z,-PI/2);
+bx(24,.1,24,0xe3d3a5,c.x,.06,c.z)})();
+(()=>{const c=LM[1];bx(22,3,22,0xb9a57a,c.x,1.5,c.z);cy(8,8,10,SAND,c.x,8,c.z);cy(8.3,8.3,2,BLUE,c.x,14,c.z);
+dome(9,TQ,c.x,15,c.z,null,1.35);[[-1,-1],[1,-1],[-1,1],[1,1]].forEach(a=>{cy(1.3,1.3,18,SAND,c.x+a[0]*12,9,c.z+a[1]*12);cy(1.6,1,2,TQ,c.x+a[0]*12,19,c.z+a[1]*12)});
+bx(10,12,2,BLUE,c.x,7,c.z+11.5);addC(c.x,c.z,17)})();
+(()=>{const c=LM[2],cl=[0xd94f4f,0x3f8fd9,0xe6b93a,0x4fb36a,0xc65fb0];
+for(let i=0;i<4;i++)for(let j=0;j<3;j++){const x=c.x-22+i*14,z=c.z-16+j*16,k=cl[(i+j*2)%5];
+bx(6,3,6,0xe7dcc0,x,1.5,z);bx(8,.4,8,k,x,3.6,z);cy(.2,.2,3.6,0x555555,x-3.5,1.8,z-3.5);cy(.2,.2,3.6,0x555555,x+3.5,1.8,z+3.5);addC(x,z,5)}})();
+(()=>{const c=LM[3];bx(90,.1,10,0xe3d3a5,c.x,.06,c.z);
+for(let i=0;i<6;i++){const x=c.x-37+i*15;bx(9,9,9,SAND,x,4.5,c.z-7);bx(4,6,.4,BLUE,x,4,c.z-2.4);
+cy(3,3,3,TQ,x,10.5,c.z-7);dome(3.6,TQ,x,12,c.z-7);addC(x,c.z-7,6.5)}})();
+// fillers
+const pal=[0xe8dcc0,0xd8c7a0,0xc9b48a,0xefe6d2,0xb8c4c9];
+function tree(x,z){cy(.3,.3,2.5,0x6b4a2b,x,1.25,z);const m=new T.Mesh(new T.ConeGeometry(2,5,8),mat(0x3f7a3a));m.position.set(x,5,z);S.add(m)}
+[-150,-50,50,150].forEach(bx0=>[-150,-50,50,150].forEach(bz0=>{
+if(LM.some(l=>l.x==bx0&&l.z==bz0))return;
+[[-22,-22],[22,-22],[-22,22],[22,22]].forEach(o=>{const x=bx0+o[0],z=bz0+o[1];
+if(Math.random()<.8){const w=11+Math.random()*8,d=11+Math.random()*8,h=6+Math.random()*16;
+bx(w,h,d,pal[(Math.random()*5)|0],x,h/2,z);bx(w*.4,1,d*.4,0xb06a4a,x,h+.5,z);addC(x,z,Math.max(w,d)*.62)}
+else{tree(x-5,z);tree(x+5,z+4);tree(x,z-6)}})}));
+// cars
+const SP=[
+{n:'Nexia 2',i:'Ixcham va barqaror',col:0xb3262e,l:4.2,w:1.8,h:.8,max:34,acc:14},
+{n:'Cobalt',i:'Qulay va tez',col:0xf1f1f1,l:4.5,w:1.8,h:.85,max:40,acc:17},
+{n:'BMW',i:'Eng tez va sportcha',col:0x15151a,l:4.7,w:1.95,h:.7,max:54,acc:26,sport:1}];
+function mk(s){const g=new T.Group(),y=.45+s.h/2;bx(s.w,s.h,s.l,s.col,0,y,0,g);
+bx(s.w*.86,.62,s.l*.45,s.col,0,.45+s.h+.31,-s.l*.06,g);bx(s.w*.88,.4,s.l*.4,0x1b2a3a,0,.45+s.h+.33,-s.l*.06,g);
+[[-1,-1],[1,-1],[-1,1],[1,1]].forEach(a=>{const w=cy(.38,.38,.3,0x111111,a[0]*s.w/2,.38,a[1]*s.l*.32,g);w.rotation.z=PI/2});
+[-1,1].forEach(a=>{bx(.45,.2,.1,0xfff3b0,a*s.w*.32,y+.1,s.l/2,g);bx(.45,.2,.1,0xd01f1f,a*s.w*.32,y+.1,-s.l/2,g)});
+if(s.sport)bx(.3,.05,s.l*.9,0x2d7de0,0,.45+s.h+.01,0,g);
+return g}
+// player
+let car=null,sel=0;const P={x:0,z:60,a:PI,v:0};
+function pick(i){sel=i;if(car)S.remove(car);car=mk(SP[i]);S.add(car);
+document.querySelectorAll('.car').forEach((b,j)=>b.classList.toggle('sel',j==i))}
+SP.forEach((s,i)=>{const b=document.createElement('button');b.className='car';b.innerHTML=s.n+'<small>'+s.i+'</small>';b.onclick=()=>pick(i);$('cars').appendChild(b)});
+pick(0);let playing=false;
+$('go').onclick=()=>{$('menu').style.display='none';playing=true};
+$('pause').onclick=()=>{playing=false;$('menu').style.display='flex'};
+// traffic
+const TR=[];const tc=[0x2a6fd1,0xe8c32a,0x3a9a5a,0xcfcfcf,0x8a3fa8,0xd96a2a];
+for(let i=0;i<12;i++){const ax=Math.random()<.5?'x':'z',r=RD[(Math.random()*5)|0],dir=Math.random()<.5?-1:1;
+const g=mk({col:tc[i%6],l:4.3,w:1.8,h:.8});S.add(g);
+TR.push({g,ax,r,dir,p:Math.random()*440-220,v:8+Math.random()*6})}
+// input
+const K={l:0,r:0,g:0,b:0},km={ArrowLeft:'l',a:'l',ArrowRight:'r',d:'r',ArrowUp:'g',w:'g',ArrowDown:'b',s:'b'};
+addEventListener('keydown',e=>{const k=km[e.key];if(k)K[k]=1});addEventListener('keyup',e=>{const k=km[e.key];if(k)K[k]=0});
+document.querySelectorAll('.ctl button').forEach(b=>{const k=b.dataset.k,on=e=>{e.preventDefault();K[k]=1;b.classList.add('on')},off=()=>{K[k]=0;b.classList.remove('on')};
+b.addEventListener('pointerdown',on);['pointerup','pointercancel','pointerleave'].forEach(t=>b.addEventListener(t,off))});
+// minimap
+const mm=$('mm').getContext('2d'),MS=220/470,mx=x=>(x+235)*MS;
+function drawMap(){mm.clearRect(0,0,220,220);mm.strokeStyle='rgba(255,255,255,.35)';mm.lineWidth=3;
+RD.forEach(v=>{mm.beginPath();mm.moveTo(mx(v),0);mm.lineTo(mx(v),220);mm.moveTo(0,mx(v));mm.lineTo(220,mx(v));mm.stroke()});
+mm.fillStyle='#f0b94a';mm.font='bold 18px sans-serif';mm.textAlign='center';
+LM.forEach(l=>{mm.beginPath();mm.arc(mx(l.x),mx(l.z),8,0,PI*2);mm.fill()});
+mm.fillStyle='#fff';TR.forEach(t=>{const x=t.ax=='x'?t.p:t.r,z=t.ax=='z'?t.p:t.r;mm.fillRect(mx(x)-2,mx(z)-2,4,4)});
+mm.save();mm.translate(mx(P.x),mx(P.z));mm.rotate(PI-P.a);mm.fillStyle='#2fe0f0';
+mm.beginPath();mm.moveTo(0,-10);mm.lineTo(7,8);mm.lineTo(-7,8);mm.closePath();mm.fill();mm.restore()}
+// loop
+const clk=new T.Clock();let first=true;
+function hit(o,x,z,r){const dx=P.x-x,dz=P.z-z,d=Math.hypot(dx,dz),m=r+2.2;
+if(d<m&&d>.01){P.x=x+dx/d*m;P.z=z+dz/d*m;P.v*=.6}}
+function loop(){requestAnimationFrame(loop);const dt=Math.min(clk.getDelta(),.05),s=SP[sel];
+if(playing){const th=K.g-K.b;
+if(K.g)P.v=Math.min(s.max,P.v+s.acc*dt*(1-P.v/(s.max*1.1)));
+else if(K.b){P.v-=(P.v>0?32:s.acc*.6)*dt;if(P.v<-12)P.v=-12}
+else{const f=Math.min(Math.abs(P.v),5*dt);P.v-=Math.sign(P.v)*f}
+const st=K.r-K.l;P.a-=st*dt*1.9*Math.max(-1,Math.min(1,P.v/10))*(1-Math.abs(P.v)/s.max*.35);
+P.x+=Math.sin(P.a)*P.v*dt;P.z+=Math.cos(P.a)*P.v*dt;
+col.forEach(c=>hit(0,c[0],c[1],c[2]));
+TR.forEach(t=>{const x=t.ax=='x'?t.p:t.g.position.x,z=t.ax=='z'?t.p:t.g.position.z;hit(0,t.g.position.x,t.g.position.z,2.2)});
+['x','z'].forEach(k=>{if(Math.abs(P[k])>232){P[k]=Math.sign(P[k])*232;P.v*=.5}})}
+TR.forEach(t=>{t.p+=t.dir*t.v*dt;if(t.p>235)t.p=-235;if(t.p<-235)t.p=235;
+const a=t.ax=='x'?(t.dir>0?PI/2:-PI/2):(t.dir>0?0:PI),fx=Math.sin(a),fz=Math.cos(a);
+if(t.ax=='x')t.g.position.set(t.p,0,t.r+fx*3.5);else t.g.position.set(t.r-fz*3.5,0,t.p);t.g.rotation.y=a});
+car.position.set(P.x,0,P.z);car.rotation.y=P.a;
+const fx=Math.sin(P.a),fz=Math.cos(P.a),k=first?1:1-Math.exp(-6*dt);first=false;
+cam.position.lerp(new T.Vector3(P.x-fx*9,4.8,P.z-fz*9),k);cam.lookAt(P.x+fx*5,1.5,P.z+fz*5);
+$('kmh').textContent=Math.round(Math.abs(P.v)*3.6);
+let near=null,nd=60;LM.forEach(l=>{const d=Math.hypot(P.x-l.x,P.z-l.z);if(d<nd){nd=d;near=l}});
+const b=$('ban');if(near){b.style.display='block';$('bn').textContent=near.n;$('bd').textContent=near.d}else b.style.display='none';
+drawMap();R.render(S,cam)}
+loop();
+</script></body></html>
